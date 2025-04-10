@@ -1,0 +1,46 @@
+{
+  "alarmCodes": {
+    "acceleration": "疑似碰撞",
+    "batteryHumidity": "电池湿度异常",
+    "batteryTemperature": "电池温度异常",
+    "batteryVoltage": "电池电压异常",
+    "chargingCurrent": "充电电流异常",
+    "chargingVoltage": "充电电压异常",
+    "collectionTime": "长时间无数据",
+    "commStatus": "主备灯通讯异常",
+    "coordinates": "位置异常",
+    "cycleTimes": "电池使用超限",
+    "illumination": "白天亮灯晚上灭灯",
+    "ledStatus": "光源故障",
+    "lightHumidity": "灯器湿度异常",
+    "lightHumidityS": "备灯湿度异常",
+    "lightQualityCode": "灯质错误",
+    "lightQualityCodeS": "备灯灯质错误",
+    "lightTemperature": "灯器温度异常",
+    "lightTemperatureS": "备灯温度异常",
+    "lightWorkCurrent": "电流异常",
+    "lightWorkCurrentS": "备灯电流异常",
+    "lightWorkVoltage": "供电电压异常",
+    "lightWorkVoltageS": "备灯电压异常",
+    "mainsVoltage": "市电停电",
+    "remainingBattery": "电量不足",
+    "remainingBulb": "剩余灯泡数不足",
+    "workLight": "主灯故障"
+  },
+  "commModeCode":{
+    "A":"AIS",
+    "B":"北斗",
+    "B3":"北斗3",
+    "C":"CDMA",
+    "G":"GPRS",
+    "L":"网络",
+    "T":"NB-IOT",
+    "U":"未知"
+  },
+  "HistoricalType":{
+    "1;2":"遥控状态",
+    "3;2":"上报状态",
+    "3;4":"上报变更",
+    "3;5":"上报报警"
+  }
+} 

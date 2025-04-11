@@ -6,7 +6,7 @@
 export const BASE_API_URL = "http://192.168.1.15:8200/api";
 
 // API认证Cookie(自动更新)
-export const AUTH_COOKIE = 'markmissgs=ODk4NzA2ZTYtZjVlZC00NDQzLWE0MzktN2ZkZDU0MDRlYjk4';
+export const AUTH_COOKIE = 'markmissgs=ZmJlZDdlOGItNmJmZi00YzNjLWFjYTQtODkyYmIzZmQ2MmIz';
 
 // 默认分页配置
 export const DEFAULT_PAGINATION = {

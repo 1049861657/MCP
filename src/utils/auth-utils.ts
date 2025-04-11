@@ -142,7 +142,8 @@ export async function login(username: string = '18900000000', password: string =
 export async function updateAuthCookie(cookie: string): Promise<void> {
   try {
     // 设置要更新的编译后文件路径
-    const distConfigPath = 'E:/testProject/MCP/dist/config/api-config.js';
+    // 使用相对路径，基于项目根目录
+    const distConfigPath = path.resolve(__dirname, '../../dist/config/api-config.js');
     
     if (!fs.existsSync(distConfigPath)) {
       throw new Error(`配置文件不存在: ${distConfigPath}`);
@@ -171,7 +172,7 @@ export async function updateAuthCookie(cookie: string): Promise<void> {
     
     // 同时更新源文件，确保下次编译时也使用更新后的cookie
     try {
-      const srcConfigPath = 'E:/testProject/MCP/src/config/api-config.ts';
+      const srcConfigPath = path.resolve(__dirname, '../../src/config/api-config.ts');
       if (fs.existsSync(srcConfigPath)) {
         let srcContent = fs.readFileSync(srcConfigPath, 'utf8');
         

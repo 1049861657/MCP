@@ -1,7 +1,8 @@
 import fs from 'fs';
+import path from 'path';
 
 // 字典文件路径
-const DICTIONARY_PATH = "E:/testProject/MCP/data/dictionaries/beacon_codes.json";
+const DICTIONARY_PATH = path.resolve(__dirname, '../../data/dictionaries/beacon_codes.json');
 
 /**
  * 读取字典文件

@@ -1,7 +1,8 @@
 import fs from 'fs';
+import path from 'path';
 
 // 枚举文件路径
-const ENUM_PATH = "E:/testProject/MCP/data/Enum/beacon_enum.json";
+const ENUM_PATH = path.resolve(__dirname, '../../data/Enum/beacon_enum.json');
 
 /**
  * 读取枚举文件

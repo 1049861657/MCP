@@ -23,6 +23,14 @@ export interface SimpleResponse {
 }
 
 /**
+ * 自定义响应结构（适用于非系统API接口）
+ */
+export interface CustomResponse {
+  success: boolean;
+  data: any;
+}
+
+/**
  * 处理分页API响应
  * @param response API原始响应
  * @returns 格式化后的响应数据
@@ -85,7 +93,7 @@ export function processSimpleResponse(response: any): SimpleResponse {
  * @param response API原始响应
  * @returns 格式化后的响应数据
  */
-export function processResponse(response: any): PagedResponse | SimpleResponse {
+export function processResponse(response: any): PagedResponse | SimpleResponse | CustomResponse {
   if (!response) {
     return {
       success: false,
@@ -96,7 +104,13 @@ export function processResponse(response: any): PagedResponse | SimpleResponse {
   // 判断是否为分页响应 (通过检查datas的结构)
   if (response.datas && typeof response.datas === 'object' && !Array.isArray(response.datas) && response.datas.result) {
     return processPagedResponse(response);
-  } else {
+  } else if (response.datas !== undefined) {
     return processSimpleResponse(response);
+  } else {
+    // 处理非系统API接口的情况，没有datas字段时直接使用response作为data
+    return {
+      success: true,
+      data: response
+    };
   }
 } 

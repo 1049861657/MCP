@@ -41,7 +41,7 @@ export default {
       const rawResponse = await fetchData(url, 'POST', body, {'Cookie': AUTH_COOKIE});
       const processedResponse = processResponse(rawResponse);
       
-      return `获取角色信息列表结果:\n${handleLargeResponse(processedResponse, "角色信息列表")}`;
+      return `${handleLargeResponse(processedResponse)}`;
     } catch (error) {
       const err = error as Error;
       return `错误: 获取角色信息列表失败 - ${err.message}`;

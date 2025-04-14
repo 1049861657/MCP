@@ -55,7 +55,7 @@ export default {
       const rawResponse = await fetchData(url, 'POST', body, {'Cookie': AUTH_COOKIE});
       const processedResponse = processResponse(rawResponse);
       
-      return `获取设备状态列表结果:\n${handleLargeResponse(processedResponse, "设备状态列表")}`;
+      return `${handleLargeResponse(processedResponse)}`;
     } catch (error) {
       return `错误: 获取设备状态列表失败 - ${error}`;
     }

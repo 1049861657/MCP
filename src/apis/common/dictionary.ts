@@ -1,6 +1,7 @@
 import { ApiCategories } from "../../config/api-config";
 import { handleLargeResponse } from "../../utils/http-utils";
 import { loadDictionary } from "../../utils/dictionary-utils";
+import { processResponse } from "../../utils/apiResponseProcessor";
 
 /**
  * 获取所有字典API
@@ -14,8 +15,8 @@ export default {
   handler: async () => {
     try {
       const dictionary = loadDictionary();
-      
-      return `字典内容:\n${handleLargeResponse(dictionary, "字典")}`;
+      const processedResponse = processResponse(dictionary);
+      return `${handleLargeResponse(processedResponse)}`;
     } catch (error) {
       return `错误: 获取字典失败 - ${error}`;
     }

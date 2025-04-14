@@ -95,7 +95,7 @@ export default {
         }
       }
       
-      return `获取设备历史报文结果:\n${handleLargeResponse(processedResponse, "设备历史报文")}`;
+      return `${handleLargeResponse(processedResponse)}`;
     } catch (error) {
       const err = error as Error;
       return `错误: 获取设备历史报文失败 - ${err.message}`;

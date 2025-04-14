@@ -119,35 +119,35 @@ export class ApiServer {
             };
           });
           
-          // 按分类组织成简洁的列表
-          const groupedApis: Record<string, string[]> = {};
+          // 按分类组织成对象结构
+          const groupedApis: Record<string, Array<{id: string, name: string, description: string}>> = {};
           
           // 先对apis进行分组
           apis.forEach(api => {
             if (!groupedApis[api.category]) {
               groupedApis[api.category] = [];
             }
-            // 同时显示ID、名称和描述
-            groupedApis[api.category].push(`${api.id}-${api.name}-${api.description}`);
+            // 保存完整的API对象信息
+            groupedApis[api.category].push({
+              id: api.id,
+              name: api.name,
+              description: api.description
+            });
           });
           
-          // 构建简洁的文本响应
-          let response = "可用API列表(apiId-Name-Description):\n\n";
-          
-          for (const category of Object.keys(groupedApis)) {
-            response += `${category}:\n`;
-            groupedApis[category].forEach(apiText => {
-              response += `  • ${apiText}\n`;
-            });
-            response += "\n";
-          }
-          
-          response += "可使用 getApiDetails 工具获取特定API的详细信息,其中source表示来源";
+          // 构建JSON格式响应
+          const response = {
+            instruction: "必须使用getApiDetails工具获取API的完整参数信息后再调用API,禁止直接调用未充分了解的API",
+            categories: Object.keys(groupedApis).map(category => ({
+              name: category,
+              apis: groupedApis[category]
+            }))
+          };
           
           return {
             content: [{
               type: "text",
-              text: response
+              text: JSON.stringify(response, null, 2)
             }]
           };
         } catch (error) {
@@ -185,7 +185,7 @@ export class ApiServer {
           return {
             content: [{ 
               type: "text" as const, 
-              text: `API详细信息:\n${JSON.stringify(apiInfo, null, 2)}`
+              text: `${JSON.stringify(apiInfo, null, 2)}`
             }]
           };
         } catch (error: any) {

@@ -37,13 +37,8 @@ export default {
       
       // 精简组织结构并统计总数
       const simplifiedHierarchy = simplifyOrganizationHierarchy(organizationData, totalCountRef);
-      
-      // 返回精简后的数据
-      if (simplifiedHierarchy) {
-        return `组织机构层级结构(共计 ${totalCountRef.count} 个单位):\n${handleLargeResponse(simplifiedHierarchy)}`;
-      } else {
-        return `未能从API响应中找到有效的组织机构数据`;
-      }
+      const processedResponse2 = processResponse(simplifiedHierarchy);
+      return `${handleLargeResponse(processedResponse2,`组织机构层级结构(共计 ${totalCountRef.count} 个单位)`)}`;
     } catch (error) {
       return `错误: 获取组织机构层级结构失败 - ${error}`;
     }

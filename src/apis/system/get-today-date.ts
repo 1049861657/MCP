@@ -1,4 +1,6 @@
 import { ApiCategories } from "../../config/api-config";
+import { processResponse } from "../../utils/apiResponseProcessor";
+import { handleLargeResponse } from "../../utils/http-utils";
 
 /**
  * 获取今天日期的API
@@ -23,7 +25,8 @@ export default {
     const formattedDay = day < 10 ? `0${day}` : `${day}`;
     
     // 返回格式化的日期
-    return `${year}-${formattedMonth}-${formattedDay}`;
+    const processedResponse = processResponse(`${year}-${formattedMonth}-${formattedDay}`);
+    return `${handleLargeResponse(processedResponse)}`;
   },
   examples: [
     {

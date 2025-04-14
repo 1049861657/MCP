@@ -66,7 +66,7 @@ export default {
         processedResponse.data = simplifiedModuleList;
       }
       
-      return `获取角色权限结果:\n${handleLargeResponse(processedResponse, "角色权限")}`;
+      return `${handleLargeResponse(processedResponse)}`;
     } catch (error) {
       const err = error as Error;
       return `错误: 获取角色详情失败 - ${err.message}`;

@@ -1,6 +1,8 @@
 import { ApiCategories } from "../../config/api-config";
+import { processResponse } from "../../utils/apiResponseProcessor";
 import { getConnection } from "../../utils/db-utils";
 import { z } from "zod";
+import { handleLargeResponse } from "../../utils/http-utils";
 
 /**
  * MySQL Explorer API
@@ -18,7 +20,8 @@ export default {
     const connection = await getConnection();
     try {
       const [results] = await connection.execute(params.sql);
-      return JSON.stringify(results, null, 2);
+      const processedResponse = processResponse(results);
+      return `${handleLargeResponse(processedResponse)}`;
     } catch (err) {
       const error = err as Error;
       throw new Error(`数据库查询错误: ${error.message}`);

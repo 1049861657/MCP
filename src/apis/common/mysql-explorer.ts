@@ -11,7 +11,7 @@ import { handleLargeResponse } from "../../utils/http-utils";
 export default {
   id: "doSqlQuery",
   name: "执行数据库查询",
-  description: "执行SQL查询并返回结果。可用于SELECT、INSERT、UPDATE、DELETE等标准SQL语法",
+  description: "执行SQL查询并返回结果。可用于SELECT、INSERT、UPDATE、DELETE等标准SQL语法。不推荐优先使用,除非有明确需求",
   category: ApiCategories.COMMON,
   schema: {
     sql: z.string().describe("要执行的SQL查询语句")

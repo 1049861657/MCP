@@ -20,14 +20,14 @@ interface StatusListParams {
  */
 export default {
   id: "getStatusList",
-  name: "获取多个设备(灯器)的最新状态",
-  description: "支持分页、关键词搜索(航标名称、设备编号或通信卡号)和按单位过滤，可查询多种报警和通信方式",
+  name: "获取多个设备(灯器)的最新数据状态",
+  description: "支持分页、关键词搜索(航标名称(北塘13)、设备编号(01030303210034)或通信卡号(992605))和按单位过滤，可查询多种报警和通信方式",
   category: ApiCategories.BEACON,
   schema: {
     ifPage: z.boolean().describe("是否分页").default(true),
     currentPage: z.number().optional().describe("当前页码").default(DEFAULT_PAGINATION.CURRENT_PAGE),
     pageRecord: z.number().optional().describe("每页记录数").default(DEFAULT_PAGINATION.PAGE_SIZE),
-    keyword: z.string().optional().describe("关键词(航标名称、设备编号或通信卡号)"),
+    keyword: z.string().optional().describe("关键词(航标名称、设备编号或通信卡号)。禁止填入单位名(比如上海港航中心)"),
     selectCmpId: z.string().optional().describe("所属单位或组织的ID").source("调用getOrganize工具获取id"),
     commModeCodeList: z.array(z.string()).optional().describe("通信方式代号").source("调用枚举工具[commModeCode]"),
     alarmList: z.array(z.string()).optional().describe("报警内容代号").source("调用枚举工具[alarmCodes]")

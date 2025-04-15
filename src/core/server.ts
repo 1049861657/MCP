@@ -120,34 +120,25 @@ export class ApiServer {
           });
           
           // 按分类组织成对象结构
-          const groupedApis: Record<string, Array<{id: string, name: string, description: string}>> = {};
+          const apiCatalog: Record<string, Array<{id: string, name: string, description: string}>> = {};
           
           // 先对apis进行分组
           apis.forEach(api => {
-            if (!groupedApis[api.category]) {
-              groupedApis[api.category] = [];
+            if (!apiCatalog[api.category]) {
+              apiCatalog[api.category] = [];
             }
             // 保存完整的API对象信息
-            groupedApis[api.category].push({
+            apiCatalog[api.category].push({
               id: api.id,
               name: api.name,
               description: api.description
             });
           });
           
-          // 构建JSON格式响应
-          const response = {
-            instruction: "必须使用getApiDetails工具获取API的完整参数信息后再调用API,禁止直接调用未充分了解的API",
-            categories: Object.keys(groupedApis).map(category => ({
-              name: category,
-              apis: groupedApis[category]
-            }))
-          };
-          
           return {
             content: [{
               type: "text",
-              text: JSON.stringify(response, null, 2)
+              text: JSON.stringify(apiCatalog, null, 2)
             }]
           };
         } catch (error) {

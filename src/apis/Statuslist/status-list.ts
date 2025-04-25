@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { ApiCategories } from "../../config/api-config";
-import { fetchData, handleLargeResponse } from "../../utils/http-utils";
+import { fetchDataAuth, handleLargeResponse } from "../../utils/http-utils";
 import { processResponse } from "../../utils/apiResponseProcessor";
-import { AUTH_COOKIE, BASE_API_URL, DEFAULT_PAGINATION } from "../../config/api-config";
+import { BASE_API_URL, DEFAULT_PAGINATION } from "../../config/api-config";
 
 // 状态列表参数接口
 interface StatusListParams {
@@ -52,7 +52,7 @@ export default {
         alarmList
       };
       const url = `${BASE_API_URL}/Statuslist/getList`;
-      const rawResponse = await fetchData(url, 'POST', body, {'Cookie': AUTH_COOKIE});
+      const rawResponse = await fetchDataAuth(url, 'POST', body);
       const processedResponse = processResponse(rawResponse);
       
       return `${handleLargeResponse(processedResponse)}`;

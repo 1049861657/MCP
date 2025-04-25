@@ -1,12 +1,15 @@
 /**
  * API全局配置文件
  */
+import { getAuthCookie } from '../utils/json-db-utils';
 
 // 基础API URL
 export const BASE_API_URL = "http://192.168.1.15:8200/api";
 
-// API认证Cookie(自动更新)
-export const AUTH_COOKIE = 'markmissgs=NTlkNGQyZTEtMjUyOS00ZmE4LWJiNDgtY2FhNzRlNDIzODdj';
+// 获取认证Cookie的函数（替代原来的常量）
+export function getApiAuthCookie(): string {
+  return getAuthCookie();
+}
 
 // 默认分页配置
 export const DEFAULT_PAGINATION = {

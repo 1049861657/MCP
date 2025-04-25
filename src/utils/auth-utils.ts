@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import http from 'http';
 import { URL } from 'url';
+import { setAuthCookie } from './json-db-utils';
 
 /**
  * 执行HTTP请求
@@ -136,60 +137,18 @@ export async function login(username: string = '18900000000', password: string =
 }
 
 /**
- * 更新配置文件中的AUTH_COOKIE值
+ * 更新认证Cookie
  * @param cookie 新的cookie值
  */
 export async function updateAuthCookie(cookie: string): Promise<void> {
   try {
-    // 设置要更新的编译后文件路径
-    // 使用相对路径，基于项目根目录
-    const distConfigPath = path.resolve(__dirname, '../../dist/config/api-config.js');
+    // 提取cookie值(如果cookie包含完整的形式如'markmissgs=XXX')
+    const cookieValue = cookie.includes('=') ? cookie : `markmissgs=${cookie}`;
     
-    if (!fs.existsSync(distConfigPath)) {
-      throw new Error(`配置文件不存在: ${distConfigPath}`);
-    }
+    // 更新JSON数据库中的cookie
+    setAuthCookie(cookieValue);
     
-    // 读取文件内容
-    let configContent = fs.readFileSync(distConfigPath, 'utf8');
-    
-    // 在dist文件中使用的是exports.AUTH_COOKIE格式
-    const cookieRegex = /(exports\.AUTH_COOKIE\s*=\s*['"])(.+?)(['"])/;
-    
-    if (!cookieRegex.test(configContent)) {
-      throw new Error('未找到匹配的认证Cookie格式');
-    }
-    
-    // 替换cookie值
-    const updatedContent = configContent.replace(cookieRegex, `$1${cookie}$3`);
-    
-    // 确认内容已更改
-    if (updatedContent === configContent) {
-      throw new Error('替换后内容没有变化');
-    }
-    
-    // 写入更新后的内容
-    fs.writeFileSync(distConfigPath, updatedContent, 'utf8');
-    
-    // 同时更新源文件，确保下次编译时也使用更新后的cookie
-    try {
-      const srcConfigPath = path.resolve(__dirname, '../../src/config/api-config.ts');
-      if (fs.existsSync(srcConfigPath)) {
-        let srcContent = fs.readFileSync(srcConfigPath, 'utf8');
-        
-        // 源文件中使用的是export const格式
-        const srcCookieRegex = /(export\s+const\s+AUTH_COOKIE\s*=\s*['"])(.+?)(['"])/;
-        
-        if (srcCookieRegex.test(srcContent)) {
-          // 提取cookie值部分(如果cookie包含完整的形式如'markmissgs=XXX')
-          const cookieValue = cookie.includes('=') ? cookie.split('=')[1] : cookie;
-          // 更新源文件
-          const updatedSrcContent = srcContent.replace(srcCookieRegex, `$1markmissgs=${cookieValue}$3`);
-          fs.writeFileSync(srcConfigPath, updatedSrcContent, 'utf8');
-        }
-      }
-    } catch (srcError) {
-      // 忽略源文件更新错误
-    }
+    console.log('认证Cookie已成功更新');
   } catch (error) {
     console.error('更新认证Cookie失败');
     throw error;

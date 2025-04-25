@@ -1,8 +1,8 @@
 import { ApiCategories } from "../../config/api-config";
 import { z } from "zod";
-import { fetchData, handleLargeResponse } from "../../utils/http-utils";
+import { fetchDataAuth, handleLargeResponse } from "../../utils/http-utils";
 import { processResponse } from "../../utils/apiResponseProcessor";
-import { AUTH_COOKIE, BASE_API_URL, DEFAULT_PAGINATION } from "../../config/api-config";
+import { BASE_API_URL, DEFAULT_PAGINATION } from "../../config/api-config";
 
 // 设备运行参数查询参数接口
 interface TaskrecordListParams {
@@ -42,7 +42,7 @@ export default {
       };
       
       const url = `${BASE_API_URL}/Taskrecord/getList`;
-      const rawResponse = await fetchData(url, 'POST', body, {'Cookie': AUTH_COOKIE});
+      const rawResponse = await fetchDataAuth(url, 'POST', body);
       const processedResponse = processResponse(rawResponse);
 
       return `${handleLargeResponse(processedResponse)}`;

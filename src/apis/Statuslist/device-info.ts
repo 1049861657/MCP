@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { ApiCategories } from "../../config/api-config";
-import { fetchData, handleLargeResponse } from "../../utils/http-utils";
+import { fetchDataAuth, handleLargeResponse } from "../../utils/http-utils";
 import { processResponse } from "../../utils/apiResponseProcessor";
-import { AUTH_COOKIE, BASE_API_URL } from "../../config/api-config";
+import { BASE_API_URL } from "../../config/api-config";
 
 /**
  * 获取设备信息API
@@ -18,7 +18,7 @@ export default {
   handler: async ({ deviceCode }: { deviceCode: string }) => {
     try {
       const url = `${BASE_API_URL}/Statuslist/getInfo/${deviceCode}`;
-      const rawResponse = await fetchData(url, 'GET', null, {'Cookie': AUTH_COOKIE});
+      const rawResponse = await fetchDataAuth(url, 'GET', null);
       const processedResponse = processResponse(rawResponse);
       
       return `${handleLargeResponse(processedResponse)}`;

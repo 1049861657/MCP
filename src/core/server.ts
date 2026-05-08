@@ -1,227 +1,348 @@
+import { randomUUID } from "node:crypto";
+import type { Server } from "node:http";
+import type { Request, Response } from "express";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js";
+import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
-import apiRegistry from './registry';
+import apiRegistry from "./registry";
 
 /**
- * MCP服务器配置接口
+ * MCP 服务器配置（Streamable HTTP）
  */
 export interface McpServerConfig {
-  /**
-   * 服务器名称
-   */
   name: string;
-  
-  /**
-   * 服务器版本
-   */
   version: string;
-  
-  /**
-   * 是否显示调试日志
-   */
   debug?: boolean;
+  /** 监听地址，默认读取 MCP_HOST，否则 127.0.0.1 */
+  host?: string;
+  /** 监听端口，默认读取 MCP_PORT，否则 8080 */
+  port?: number;
+  /** MCP HTTP 端点路径，默认 /mcp（见 MCP Streamable HTTP 规范） */
+  mcpPath?: string;
 }
 
-/**
- * MCP服务器默认配置
- */
 const DEFAULT_CONFIG: McpServerConfig = {
   name: "DynamicApiServer",
   version: "1.0.0",
-  debug: false
 };
 
 /**
- * MCP服务器类 - 提供API元工具和交互能力
+ * 基于 Streamable HTTP 的 MCP 服务（参见 SDK server.md / Streamable HTTPServerTransport）
  */
 export class ApiServer {
-  private server: McpServer;
-  private transport: StdioServerTransport;
   private config: McpServerConfig;
-  private isRunning: boolean = false;
-  
+  private isRunning = false;
+  private httpServer?: Server;
+  private readonly transports: Record<string, StreamableHTTPServerTransport> = {};
+
   constructor(config: Partial<McpServerConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
-    this.server = new McpServer({
+  }
+
+  /**
+   * 预留钩子；元工具在每条会话的 createMcpServer() 中注册。
+   */
+  initialize(): void {}
+
+  /**
+   * 为当前会话构造 MCP 实例并注册元工具。
+   */
+  private createMcpServer(): McpServer {
+    const server = new McpServer({
       name: this.config.name,
-      version: this.config.version
+      version: this.config.version,
     });
-    this.transport = new StdioServerTransport();
+    this.registerMetaToolsOn(server);
+    return server;
   }
-  
-  /**
-   * 初始化服务器，注册API元工具
-   */
-  initialize(): void {
-    this.registerMetaTools();
-  }
-  
-  /**
-   * 启动服务器
-   */
-  async start(): Promise<void> {
-    if (this.isRunning) {
-      this.logDebug("MCP服务器已经在运行中");
-      return;
-    }
-    
-    try {
-      await this.server.connect(this.transport);
-      this.isRunning = true;
-      this.logDebug("MCP服务器已启动");
-    } catch (error) {
-      console.error("启动MCP服务器失败:", error);
-      throw error;
-    }
-  }
-  
-  /**
-   * 停止服务器
-   * 注意: McpServer API没有提供disconnect方法
-   * 这里我们只能记录服务器状态，无法真正断开连接
-   */
-  async stop(): Promise<void> {
-    if (!this.isRunning) {
-      this.logDebug("MCP服务器已经停止");
-      return;
-    }
-    
-    try {
-      // 由于McpServer没有断开连接的方法，我们只能标记状态
-      // 实际上，当进程结束时，连接会自动关闭
-      this.isRunning = false;
-      this.logDebug("MCP服务器已标记为停止状态");
-    } catch (error) {
-      console.error("停止MCP服务器失败:", error);
-    }
-  }
-  
-  /**
-   * 注册所有API元工具
-   */
-  private registerMetaTools(): void {
-    // 1. 基础元工具：获取所有可用API列表
-    this.server.tool(
+
+  private registerMetaToolsOn(server: McpServer): void {
+    server.registerTool(
       "listAllApis",
-      "列出所有可用的API接口",
-      {},
+      {
+        description: "列出所有可用的API接口",
+        inputSchema: {},
+      },
       async () => {
         try {
-          // 获取简化的API列表
-          const apis = apiRegistry.getAllApiIds().map(id => {
+          const apis = apiRegistry.getAllApiIds().map((id) => {
             const apiInfo = apiRegistry.getApiInfo(id);
             return {
               id,
               name: apiInfo?.name || id,
               description: apiInfo?.description || "",
-              category: apiInfo?.category || "未分类"
+              category: apiInfo?.category || "未分类",
             };
           });
-          
-          // 按分类组织成对象结构
-          const apiCatalog: Record<string, Array<{id: string, name: string, description: string}>> = {};
-          
-          // 先对apis进行分组
-          apis.forEach(api => {
+
+          const apiCatalog: Record<
+            string,
+            Array<{ id: string; name: string; description: string }>
+          > = {};
+
+          apis.forEach((api) => {
             if (!apiCatalog[api.category]) {
               apiCatalog[api.category] = [];
             }
-            // 保存完整的API对象信息
             apiCatalog[api.category].push({
               id: api.id,
               name: api.name,
-              description: api.description
+              description: api.description,
             });
           });
-          
+
           return {
-            content: [{
-              type: "text",
-              text: JSON.stringify(apiCatalog, null, 2)
-            }]
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(apiCatalog, null, 2),
+              },
+            ],
           };
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
           return {
-            content: [{
-              type: "text",
-              text: `错误: 获取API列表失败 - ${errorMessage}`
-            }]
+            content: [
+              {
+                type: "text",
+                text: `错误: 获取API列表失败 - ${errorMessage}`,
+              },
+            ],
           };
         }
       }
     );
-    
-    // 2. 基础元工具：获取特定API的详细信息
-    this.server.tool(
+
+    server.registerTool(
       "getApiDetails",
-      "获取特定API的详细信息和使用方法",
       {
-        apiId: z.string().describe("API的唯一标识符")
+        description: "获取特定API的详细信息和使用方法",
+        inputSchema: {
+          apiId: z.string().describe("API的唯一标识符"),
+        },
       },
-      async ({ apiId }: { apiId: string }) => {
+      async ({ apiId }) => {
         try {
           const apiInfo = apiRegistry.getApiInfo(apiId);
-          
+
           if (!apiInfo) {
             return {
-              content: [{ 
-                type: "text" as const, 
-                text: `错误: 未找到ID为 ${apiId} 的API`
-              }]
+              content: [
+                {
+                  type: "text" as const,
+                  text: `错误: 未找到ID为 ${apiId} 的API`,
+                },
+              ],
             };
           }
-          
+
           return {
-            content: [{ 
-              type: "text" as const, 
-              text: `${JSON.stringify(apiInfo, null, 2)}`
-            }]
+            content: [
+              {
+                type: "text" as const,
+                text: `${JSON.stringify(apiInfo, null, 2)}`,
+              },
+            ],
           };
-        } catch (error: any) {
+        } catch (error: unknown) {
+          const msg = error instanceof Error ? error.message : String(error);
           return {
-            content: [{ 
-              type: "text" as const, 
-              text: `错误: 获取API详情失败 - ${error?.message || error}`
-            }]
+            content: [
+              {
+                type: "text" as const,
+                text: `错误: 获取API详情失败 - ${msg}`,
+              },
+            ],
           };
         }
       }
     );
-    
-    // 3. 基础元工具：执行API
-    this.server.tool(
+
+    server.registerTool(
       "executeApi",
-      "执行指定的API,需要提供API的ID和参数",
       {
-        apiId: z.string().describe("要执行的API的唯一标识符"),
-        params: z.record(z.any()).optional().describe("API的参数")
+        description: "执行指定的API,需要提供API的ID和参数",
+        inputSchema: {
+          apiId: z.string().describe("要执行的API的唯一标识符"),
+          params: z
+            .record(z.string(), z.unknown())
+            .optional()
+            .describe("API的参数"),
+        },
       },
-      async ({ apiId, params = {} }: { apiId: string; params?: Record<string, any> }) => {
+      async ({ apiId, params = {} }) => {
         try {
-          const result = await apiRegistry.executeApi(apiId, params);
-          
+          const result = await apiRegistry.executeApi(
+            apiId,
+            params as Record<string, unknown>
+          );
           return {
-            content: [{ type: "text" as const, text: result }]
+            content: [{ type: "text" as const, text: result }],
           };
-        } catch (error: any) {
+        } catch (error: unknown) {
+          const msg = error instanceof Error ? error.message : String(error);
           return {
-            content: [{ 
-              type: "text" as const, 
-              text: `错误: ${error?.message || error}`
-            }]
+            content: [
+              {
+                type: "text" as const,
+                text: `错误: ${msg}`,
+              },
+            ],
           };
         }
       }
     );
-    
+
     this.logDebug("已注册API元工具");
   }
-  
+
   /**
-   * 输出调试日志
+   * 启动 Streamable HTTP（有状态会话：initialize 分配 session，后续请求带 mcp-session-id）
    */
+  async start(): Promise<void> {
+    if (this.isRunning) {
+      this.logDebug("MCP 已在运行");
+      return;
+    }
+
+    const host = this.config.host ?? process.env.MCP_HOST ?? "127.0.0.1";
+    const port = this.config.port ?? Number(process.env.MCP_PORT ?? "8080");
+    const mcpPath = this.config.mcpPath ?? "/mcp";
+
+    const app = createMcpExpressApp({ host });
+
+    app.post(mcpPath, (req: Request, res: Response) => {
+      void this.handleMcpPost(req, res);
+    });
+    app.get(mcpPath, (req: Request, res: Response) => {
+      void this.handleMcpGet(req, res);
+    });
+    app.delete(mcpPath, (req: Request, res: Response) => {
+      void this.handleMcpDelete(req, res);
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      const srv = app.listen(port, host, () => resolve());
+      this.httpServer = srv;
+      srv.once("error", reject);
+    });
+
+    this.isRunning = true;
+    const url = `http://${host}:${port}${mcpPath}`;
+    console.log(`MCP Streamable HTTP 端点: ${url}`);
+    this.logDebug(`监听 ${url}`);
+  }
+
+  private async handleMcpPost(req: Request, res: Response): Promise<void> {
+    const sessionId = req.headers["mcp-session-id"] as string | undefined;
+
+    try {
+      if (sessionId && this.transports[sessionId]) {
+        await this.transports[sessionId].handleRequest(req, res, req.body);
+        return;
+      }
+
+      if (!sessionId && isInitializeRequest(req.body)) {
+        const transport = new StreamableHTTPServerTransport({
+          sessionIdGenerator: () => randomUUID(),
+          onsessioninitialized: (sid) => {
+            this.transports[sid] = transport;
+          },
+        });
+
+        transport.onclose = () => {
+          const sid = transport.sessionId;
+          if (sid && this.transports[sid]) {
+            delete this.transports[sid];
+          }
+        };
+
+        const mcp = this.createMcpServer();
+        await mcp.connect(transport);
+        await transport.handleRequest(req, res, req.body);
+        return;
+      }
+
+      res.status(400).json({
+        jsonrpc: "2.0",
+        error: {
+          code: -32000,
+          message: "Bad Request: No valid session ID provided",
+        },
+        id: null,
+      });
+    } catch (error) {
+      console.error("MCP POST 处理失败:", error);
+      if (!res.headersSent) {
+        res.status(500).json({
+          jsonrpc: "2.0",
+          error: {
+            code: -32603,
+            message: "Internal server error",
+          },
+          id: null,
+        });
+      }
+    }
+  }
+
+  private async handleMcpGet(req: Request, res: Response): Promise<void> {
+    const sessionId = req.headers["mcp-session-id"] as string | undefined;
+    if (!sessionId || !this.transports[sessionId]) {
+      res.status(400).send("Invalid or missing session ID");
+      return;
+    }
+    try {
+      await this.transports[sessionId].handleRequest(req, res);
+    } catch (error) {
+      console.error("MCP GET (SSE) 处理失败:", error);
+      if (!res.headersSent) {
+        res.status(500).send("Internal server error");
+      }
+    }
+  }
+
+  private async handleMcpDelete(req: Request, res: Response): Promise<void> {
+    const sessionId = req.headers["mcp-session-id"] as string | undefined;
+    if (!sessionId || !this.transports[sessionId]) {
+      res.status(400).send("Invalid or missing session ID");
+      return;
+    }
+    try {
+      await this.transports[sessionId].handleRequest(req, res);
+    } catch (error) {
+      console.error("MCP DELETE 处理失败:", error);
+      if (!res.headersSent) {
+        res.status(500).send("Error processing session termination");
+      }
+    }
+  }
+
+  async stop(): Promise<void> {
+    const ids = Object.keys(this.transports);
+    for (const sid of ids) {
+      try {
+        await this.transports[sid]?.close();
+      } catch {
+        /* ignore */
+      }
+      delete this.transports[sid];
+    }
+
+    if (this.httpServer) {
+      await new Promise<void>((resolve, reject) => {
+        this.httpServer!.close((err) => (err ? reject(err) : resolve()));
+      });
+      this.httpServer = undefined;
+    }
+
+    this.isRunning = false;
+    this.logDebug("HTTP 服务已停止");
+  }
+
   private logDebug(message: string): void {
     if (this.config.debug) {
       console.log(`[Debug] ${message}`);
@@ -229,6 +350,5 @@ export class ApiServer {
   }
 }
 
-// 导出默认服务器实例
 const defaultServer = new ApiServer();
-export default defaultServer; 
+export default defaultServer;

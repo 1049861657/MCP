@@ -1,26 +1,11 @@
 import { z } from "zod";
 import { ApiCategories } from "../config/api-config";
 
-// 扩展Zod类型定义，添加source方法
-declare module "zod" {
-  interface ZodType<Output, Def, Input> {
-    source: (source: string) => this;
-  }
-}
-
-// 为Zod类型添加source方法
-if (!z.ZodType.prototype.hasOwnProperty('source')) {
-  z.ZodType.prototype.source = function(source: string) {
-    (this as any)._source = source;
-    return this;
-  };
-}
-
 // API分类类型
 export type ApiCategory = typeof ApiCategories[keyof typeof ApiCategories];
 
-// API参数数据类型
-export type SchemaDefinition = Record<string, z.ZodType<any, any, any>>;
+// API 参数：Zod 4 用 z.core.SomeType 表示任意 schema（经典 API 实例均满足该形状）
+export type SchemaDefinition = Record<string, z.core.SomeType>;
 
 // API处理器类型
 export type ApiHandler<T = any> = (params: T) => Promise<string>;
@@ -198,7 +183,7 @@ export class ApiRegistry {
     
     // 验证必需参数
     const requiredParams = Object.entries(api.schema)
-      .filter(([_, schema]) => !schema.isOptional())
+      .filter(([_, schema]) => !(schema as z.ZodType).isOptional())
       .map(([key]) => key);
     
     const missingParams = requiredParams.filter(param => !(param in params));
@@ -223,7 +208,7 @@ export class ApiRegistry {
       const paramInfo: any = {
         name,
         type: this.getSchemaType(schema),
-        required: !schema.isOptional(),
+        required: !(schema as z.ZodType).isOptional(),
         description: this.getSchemaDescription(schema)
       };
       
@@ -255,11 +240,10 @@ export class ApiRegistry {
   /**
    * 获取Zod模式的类型描述
    */
-  private getSchemaType(schema: z.ZodType<any>): string {
+  private getSchemaType(schema: z.core.SomeType): string {
     // 处理带有默认值的类型
     if (schema instanceof z.ZodDefault) {
-      // 不在类型中显示默认值，直接返回内部类型
-      const innerType = schema.removeDefault();
+      const innerType = schema.unwrap();
       return this.getSchemaType(innerType);
     }
     
@@ -304,15 +288,9 @@ export class ApiRegistry {
     
     // 处理联合类型
     if (schema instanceof z.ZodUnion) {
-      try {
-        // 尝试提取联合类型的选项
-        const options = (schema as any)._def.options;
-        if (Array.isArray(options)) {
-          return options.map(opt => this.getSchemaType(opt)).join('|');
-        }
-      } catch (e) {
-        // 如果提取失败，返回一般联合类型
-        return 'union';
+      const options = schema.options;
+      if (Array.isArray(options)) {
+        return options.map((opt) => this.getSchemaType(opt)).join("|");
       }
     }
     
@@ -324,9 +302,13 @@ export class ApiRegistry {
   /**
    * 获取Zod模式的描述
    */
-  private getSchemaDescription(schema: z.ZodType<any>): string {
-    // 尝试从模式中获取描述
-    const description = (schema as any)._def?.description;
+  private getSchemaDescription(schema: z.core.SomeType): string {
+    const reg = z.globalRegistry.get(schema as z.core.$ZodType);
+    const regDesc =
+      reg && typeof reg === "object" && "description" in reg
+        ? (reg as { description?: string }).description
+        : undefined;
+    const description = (schema as z.ZodType).description ?? regDesc;
     
     // 处理可选类型
     if (schema instanceof z.ZodOptional) {
@@ -346,11 +328,18 @@ export class ApiRegistry {
   /**
    * 获取Zod模式的默认值
    */
-  private getSchemaDefault(schema: z.ZodType<any>): any {
+  private getSchemaDefault(schema: z.core.SomeType): any {
     try {
-      // 尝试获取默认值
       if (schema instanceof z.ZodDefault) {
-        const defaultValue = (schema as any)._def?.defaultValue?.();
+        const raw = (schema as z.ZodDefault).def.defaultValue as unknown;
+        const defaultValue =
+          typeof raw === "function" ? (raw as () => unknown)() : raw;
+        return defaultValue !== undefined ? defaultValue : undefined;
+      }
+      if (schema instanceof z.ZodPrefault) {
+        const raw = (schema as z.ZodPrefault).def.defaultValue as unknown;
+        const defaultValue =
+          typeof raw === "function" ? (raw as () => unknown)() : raw;
         return defaultValue !== undefined ? defaultValue : undefined;
       }
       
@@ -381,26 +370,32 @@ export class ApiRegistry {
   /**
    * 获取Zod模式的source信息
    */
-  private getSchemaSource(schema: z.ZodType<any>): string | undefined {
-    // 尝试从模式中获取source
-    const source = (schema as any)._source;
+  private getSchemaSource(schema: z.core.SomeType): string | undefined {
+    const reg = z.globalRegistry.get(schema as z.core.$ZodType);
+    if (reg && typeof reg === "object" && reg !== null && "source" in reg) {
+      const s = (reg as { source?: unknown }).source;
+      if (typeof s === "string" && s.length > 0) {
+        return s;
+      }
+    }
     
-    // 处理可选类型
-    if (!source && schema instanceof z.ZodOptional) {
+    if (schema instanceof z.ZodOptional) {
       return this.getSchemaSource(schema.unwrap());
     }
-    
-    // 处理可空类型
-    if (!source && schema instanceof z.ZodNullable) {
+
+    if (schema instanceof z.ZodNullable) {
       return this.getSchemaSource(schema.unwrap());
     }
-    
-    // 处理默认值类型
-    if (!source && schema instanceof z.ZodDefault) {
-      return this.getSchemaSource(schema.removeDefault());
+
+    if (schema instanceof z.ZodDefault) {
+      return this.getSchemaSource(schema.unwrap());
     }
-    
-    return source;
+
+    if (schema instanceof z.ZodPrefault) {
+      return this.getSchemaSource(schema.unwrap());
+    }
+
+    return undefined;
   }
 }
 

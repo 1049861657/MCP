@@ -1,7 +1,6 @@
 import path from 'path';
 import apiServer from './core/server';
 import apiLoader from './core/loader';
-import { authenticateOnStartup } from './utils/auth-utils';
 
 // 初始化API加载器配置
 const apiLoaderConfig = {
@@ -21,10 +20,6 @@ async function startup() {
   console.log("正在启动动态API服务器...");
   
   try {
-    // 执行登录认证
-    console.log("正在进行API认证...");
-    await authenticateOnStartup();
-    
     // 初始化服务器
     apiServer.initialize();
     console.log("已初始化API服务器");
@@ -41,7 +36,10 @@ async function startup() {
     await apiServer.start();
     
     console.log("动态API服务器启动完成！");
-    console.log("提示: 在AI中仅可见三个元工具，但可通过这些工具动态使用所有API");
+    console.log(
+      "传输: MCP Streamable HTTP（会话请使用响应头中的会话机制；客户端需支持 HTTP + mcp-session-id）"
+    );
+    console.log("提示: 仅暴露三个元工具，可通过其动态调用已加载 API");
     
     // 设置进程关闭处理
     setupShutdown();
@@ -93,4 +91,4 @@ function setupShutdown() {
 }
 
 // 启动服务器
-startup(); 
+startup();

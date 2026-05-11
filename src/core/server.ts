@@ -6,7 +6,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
-import apiRegistry from "./registry";
+import apiRegistry, { type ProgressCallback } from "./registry";
 
 /**
  * MCP 服务器配置（Streamable HTTP）
@@ -216,11 +216,33 @@ export class ApiServer {
             .describe("API的参数对象；缺省即空"),
         },
       },
-      async ({ apiId, params = {} }) => {
+      // extra: RequestHandlerExtra — 含 _meta.progressToken（客户端支持时存在）与 sendNotification
+      async ({ apiId, params = {} }, extra: any) => {
+        // 从 MCP 请求元数据中提取 progressToken，构建进度回调
+        const progressToken = extra?._meta?.progressToken as string | number | undefined;
+        const onProgress: ProgressCallback | undefined = progressToken != null
+          ? async (progress, total, message) => {
+              try {
+                await extra.sendNotification({
+                  method: "notifications/progress",
+                  params: {
+                    progressToken,
+                    progress,
+                    total,
+                    ...(message ? { message } : {}),
+                  },
+                });
+              } catch {
+                // progress 通知失败不应中断主流程
+              }
+            }
+          : undefined;
+
         try {
           const result = await apiRegistry.executeApi(
             apiId,
-            params as Record<string, unknown>
+            params as Record<string, unknown>,
+            onProgress
           );
           // 处理器已返回字符串（通常为 JSON），透传以保持响应紧凑
           return {
@@ -253,6 +275,23 @@ export class ApiServer {
         }
       }
     );
+
+    // 向 executeApi 的 inputSchema 注入 x-mcp-call-options，
+    // 供客户端读取并自动应用超时配置（timeout + resetTimeoutOnProgress）。
+    try {
+      const registeredTools = (server as any)._registeredTools as
+        | Record<string, { inputSchema?: Record<string, unknown> }>
+        | undefined;
+      const executeTool = registeredTools?.["executeApi"];
+      if (executeTool?.inputSchema) {
+        executeTool.inputSchema["x-mcp-call-options"] = {
+          timeout: 60_000,
+          resetTimeoutOnProgress: true,
+        };
+      }
+    } catch {
+      // 注入失败不影响功能，只是客户端无法自动读取超时声明
+    }
 
     this.registerWorkflowPromptsOn(server);
     this.logDebug("已注册API元工具与工作流 prompts");

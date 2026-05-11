@@ -7,8 +7,19 @@ export type ApiCategory = typeof ApiCategories[keyof typeof ApiCategories];
 // API 参数：Zod 4 用 z.core.SomeType 表示任意 schema（经典 API 实例均满足该形状）
 export type SchemaDefinition = Record<string, z.core.SomeType>;
 
+/**
+ * 进度回调：服务端在长耗时 API 执行期间持续调用，触发客户端 resetTimeoutOnProgress。
+ * progress/total 为当前进度分子/分母，message 为可读描述。
+ */
+export type ProgressCallback = (progress: number, total: number, message?: string) => Promise<void>;
+
+/** API 调用上下文（可选），由 server 层构造后透传给 handler */
+export interface ApiContext {
+  onProgress?: ProgressCallback;
+}
+
 // API处理器类型
-export type ApiHandler<T = any> = (params: T) => Promise<string>;
+export type ApiHandler<T = any> = (params: T, context?: ApiContext) => Promise<string>;
 
 // API定义接口
 export interface ApiDefinition {
@@ -18,6 +29,8 @@ export interface ApiDefinition {
   category: ApiCategory;
   schema: SchemaDefinition;
   handler: ApiHandler;
+  /** 该 API 执行期间会推送 notifications/progress，客户端应携带 progressToken */
+  supportsProgress?: boolean;
   examples?: Array<{
     description: string;
     params: Record<string, any>;
@@ -30,6 +43,8 @@ export interface ApiInfo {
   name: string;
   description: string;
   category: string;
+  /** 该 API 执行期间会推送 notifications/progress，客户端应携带 progressToken */
+  supportsProgress?: boolean;
   parameters: Array<{
     name: string;
     type: string;
@@ -174,8 +189,14 @@ export class ApiRegistry {
   
   /**
    * 执行API
+   * @param onProgress 可选进度回调；由 server 层从 MCP progressToken 构建后传入，
+   *                   handler 内部每完成一个子步骤时调用，驱动客户端 resetTimeoutOnProgress。
    */
-  async executeApi(apiId: string, params: Record<string, any> = {}): Promise<string> {
+  async executeApi(
+    apiId: string,
+    params: Record<string, any> = {},
+    onProgress?: ProgressCallback
+  ): Promise<string> {
     const api = this.apis.get(apiId);
     if (!api) {
       throw new Error(`API '${apiId}' 不存在。`);
@@ -192,8 +213,7 @@ export class ApiRegistry {
     }
     
     try {
-      // 执行API处理器
-      return await api.handler(params);
+      return await api.handler(params, { onProgress });
     } catch (error: any) {
       throw new Error(`执行API '${apiId}' 失败: ${error?.message || error}`);
     }
@@ -232,6 +252,7 @@ export class ApiRegistry {
       name: api.name,
       description: api.description,
       category: api.category,
+      ...(api.supportsProgress ? { supportsProgress: true } : {}),
       parameters,
       examples: api.examples,
     };

@@ -43,6 +43,7 @@ This MCP server exposes **three meta tools** that proxy a registry of business A
 | "设备状态"、"在线情况"、"任务记录" | 同上；可能涉及 ID 在 API 之间级联 |
 | "字典码"、"枚举"、"数据来源" | 看到参数 `source` 字段时，按其指示先取字典 |
 | "今天"、"日期"、"系统时间" | 直接 `executeApi("getTodayDate")` |
+| "文档/手册/wiki/操作流程/X 是什么/怎么做" | 直接 `executeApi("askKnowledgeBase", { question })`；无需先 listAllApis |
 
 ## 详细参考（按需 bash 加载）
 

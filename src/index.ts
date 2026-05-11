@@ -1,4 +1,6 @@
 import path from 'path';
+import { config as loadEnv } from 'dotenv';
+loadEnv(); // 加载 .env，早于任何模块读取 process.env
 import apiServer from './core/server';
 import apiLoader from './core/loader';
 

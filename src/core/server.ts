@@ -276,23 +276,6 @@ export class ApiServer {
       }
     );
 
-    // 向 executeApi 的 inputSchema 注入 x-mcp-call-options，
-    // 供客户端读取并自动应用超时配置（timeout + resetTimeoutOnProgress）。
-    try {
-      const registeredTools = (server as any)._registeredTools as
-        | Record<string, { inputSchema?: Record<string, unknown> }>
-        | undefined;
-      const executeTool = registeredTools?.["executeApi"];
-      if (executeTool?.inputSchema) {
-        executeTool.inputSchema["x-mcp-call-options"] = {
-          timeout: 60_000,
-          resetTimeoutOnProgress: true,
-        };
-      }
-    } catch {
-      // 注入失败不影响功能，只是客户端无法自动读取超时声明
-    }
-
     this.registerWorkflowPromptsOn(server);
     this.logDebug("已注册API元工具与工作流 prompts");
   }

@@ -74,13 +74,13 @@ export default {
     if (!llmReady || !kbReady) {
       const missing: string[] = [];
       if (!llmReady) missing.push("LLM_API_KEY/OPENAI_API_KEY");
-      if (!kbReady) missing.push("KB_MCP_COMMAND");
+      if (!kbReady) missing.push("KB_MCP_URL");
       return JSON.stringify(
         {
           error: "知识库子 agent 未就绪",
           missing,
           nextHint:
-            "在服务端环境变量中配置 LLM_API_KEY（可选 LLM_BASE_URL/LLM_MODEL）与 KB_MCP_COMMAND/KB_MCP_ARGS/KB_MCP_ENV，重启后再试。",
+            "在服务端环境变量中配置 LLM_API_KEY（可选 LLM_BASE_URL/LLM_MODEL）与 KB_MCP_URL/KB_MCP_HEADERS，重启后再试。",
         },
         null,
         2

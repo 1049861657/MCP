@@ -24,7 +24,8 @@ src/apis/
   description: string,   // 一句话；超过 80 字会被 listAllApis 自动截断
   category: ApiCategory, // 见 src/config/api-config.ts
   schema: Record<string, ZodSchema>,
-  handler: (params) => Promise<string>,   // 必须返回 string（通常 JSON.stringify 结果）
+  handler: (params, context?) => Promise<string>,  // 必须返回 string（通常 JSON.stringify 结果）
+                                                    // context.onProgress 可在长耗时 handler 中推送进度
   examples?: { description, params }[]    // 至少 1 个；listAllApis 后被截断为首条
 }
 ```

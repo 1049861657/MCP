@@ -13,7 +13,7 @@ function buildNextHint(
     case "answered":
       return undefined;
     case "no_kb":
-      return "知识库 MCP 不可用：检查 KB_MCP_COMMAND/KB_MCP_ARGS 与子进程日志。";
+      return "知识库 MCP 不可用：检查 KB_MCP_URL/KB_MCP_HEADERS 与服务端日志。";
     case "timeout":
       return "整体超时：可将 timeoutMs 调大至 90000-120000，或将问题拆分为更具体的子问题后重试。";
     case "max_steps":
@@ -44,7 +44,6 @@ export default {
   description:
     "Ask the enterprise knowledge base in natural language. 内部子 agent 会自动调用知识库 MCP 检索并汇总答案。当用户问'文档/手册/wiki/操作流程/X 是什么'时使用。",
   category: ApiCategories.KNOWLEDGE,
-  supportsProgress: true,
   schema: {
     question: z.string().min(1).describe("用户问题（自然语言）"),
     maxSteps: z

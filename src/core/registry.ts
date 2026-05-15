@@ -29,8 +29,6 @@ export interface ApiDefinition {
   category: ApiCategory;
   schema: SchemaDefinition;
   handler: ApiHandler;
-  /** 该 API 执行期间会推送 notifications/progress，客户端应携带 progressToken */
-  supportsProgress?: boolean;
   examples?: Array<{
     description: string;
     params: Record<string, any>;
@@ -43,8 +41,6 @@ export interface ApiInfo {
   name: string;
   description: string;
   category: string;
-  /** 该 API 执行期间会推送 notifications/progress，客户端应携带 progressToken */
-  supportsProgress?: boolean;
   parameters: Array<{
     name: string;
     type: string;
@@ -252,7 +248,6 @@ export class ApiRegistry {
       name: api.name,
       description: api.description,
       category: api.category,
-      ...(api.supportsProgress ? { supportsProgress: true } : {}),
       parameters,
       examples: api.examples,
     };

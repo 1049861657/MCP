@@ -34,9 +34,7 @@
          汇总结果返回客户端
 ```
 
-子 agent 的每步执行通过 `notifications/progress` 实时推送给客户端，过程不再黑盒。客户端在调用时携带 `progressToken`，即可实时感知子 agent 的执行步骤。
-
-`getApiDetails` 返回的 `supportsProgress: true` 字段标识该 API 内部使用了子 agent，客户端据此决定是否携带 `progressToken`。
+子 agent 的每步执行通过 `notifications/progress` 实时推送给客户端，过程不再黑盒。客户端对所有 `executeApi` 调用统一携带 `progressToken`，即可实时感知子 agent 的执行步骤
 
 ## 目录结构
 
@@ -104,8 +102,6 @@ export default {
   name: "你的 API 名称",
   description: "API 功能描述",
   category: ApiCategories.COMMON,
-  // 若 handler 内部使用了子 agent 并会推送进度通知，声明此字段
-  // supportsProgress: true,
   schema: {
     param1: z.string().describe("参数说明"),
     param2: z.number().optional().describe("可选参数"),

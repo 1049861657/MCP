@@ -1,6 +1,6 @@
 ---
 name: dynamic-api-gateway
-description: Discover and invoke business APIs through the dynamic MCP gateway. Use when the user asks to query devices, organizations, users, tasks, dictionaries, or any backend data exposed by this server. Always follow listAllApis → getApiDetails → executeApi in order.
+description: Discover and invoke business APIs through the dynamic MCP gateway. Use when the user asks to query devices, organizations, users, tasks, dictionaries, or any backend data exposed by this server. Follow the listAllApis → getApiDetails → executeApi discovery flow; well-known self-descriptive APIs (e.g. askKnowledgeBase) may be called directly.
 when_to_use: Triggered for backend data queries, status checks, organizational lookups, dictionary/enum decoding, batch operations, or whenever the user references API IDs returned by this gateway.
 allowed-tools: mcp__listAllApis mcp__getApiDetails mcp__executeApi
 ---
@@ -37,15 +37,14 @@ This MCP server exposes **three meta tools** that proxy a registry of business A
 
 任何时候用户的请求**可能由本 MCP 已注册的 API 满足**，例如（非穷举）：
 
-| 关键词 | 典型动作 |
+| 场景 | 典型动作 |
 |---|---|
-| "组织"、"部门"、"用户" | 先 `listAllApis`，再依次取详执行 |
-| "设备状态"、"在线情况"、"任务记录" | 同上；可能涉及 ID 在 API 之间级联 |
-| "字典码"、"枚举"、"数据来源" | 看到参数 `source` 字段时，按其指示先取字典 |
-| "今天"、"日期"、"系统时间" | 直接 `executeApi("getTodayDate")` |
-| "文档/手册/wiki/操作流程/X 是什么/怎么做" | 直接 `executeApi("askKnowledgeBase", { question })`；无需先 listAllApis |
+| 通用业务查询 | 先 `listAllApis`，再依次取详执行 |
+| 跨实体级联（如"组织下的设备"） | `listAllApis` 找多个候选，`getApiDetails` 确认级联字段，按依赖顺序执行 |
+| 参数含 `source` 字段 | 按 `source` 指示先取字典/枚举/上游 API，不要直接问用户 |
+| 高频且 apiId 自描述的 API | 可跳过 `listAllApis`，直接 `getApiDetails` → `executeApi` |
 
-## 详细参考（按需 bash 加载）
+## 详细参考（按需加载）
 
 仅在以下情形读取对应文件，不要预先全部加载：
 
@@ -53,12 +52,3 @@ This MCP server exposes **three meta tools** that proxy a registry of business A
 - 遇到 nextHint 不能解决的错误 → `reference/error-codes.md`
 - 多步组合查询、对账、级联调用 → `reference/workflow-recipes.md`
 
-## 与 MCP prompts 的协作
-
-本 MCP 同时提供三个工作流 prompt（`/` 菜单可见）：
-
-- `discover-and-call` — 单一意图三步走
-- `cross-category-query` — 跨分类组合查询
-- `batch-execute` — 同 apiId 批量调用
-
-如果用户**显式调用其中一个 prompt**，本 skill 的规约依然适用：prompt 提供编排骨架，本 skill 提供命名/错误/反模式约束。

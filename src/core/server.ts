@@ -50,10 +50,19 @@ export class ApiServer {
    * 为当前会话构造 MCP 实例并注册元工具。
    */
   private createMcpServer(): McpServer {
-    const server = new McpServer({
-      name: this.config.name,
-      version: this.config.version,
-    });
+    const server = new McpServer(
+      { name: this.config.name, version: this.config.version },
+      {
+        // instructions 随 initialize 响应发送，客户端自动注入系统 prompt
+        instructions:
+          "This server exposes business APIs through three meta-tools: " +
+          "listAllApis (discover), getApiDetails (inspect params), executeApi (run). " +
+          "Rule 1: When apiId is unknown, always call listAllApis first. " +
+          "Rule 2: Call getApiDetails before executeApi to confirm required params and their sources. " +
+          "Rule 3: When any response includes nextHint, follow it before asking the user. " +
+          "Rule 4: Never call state-mutating APIs (add/update/delete/reset) without explicit user authorization.",
+      }
+    );
     this.registerMetaToolsOn(server);
     return server;
   }
@@ -66,6 +75,7 @@ export class ApiServer {
         description:
           "List available API IDs grouped by category. Call first when unsure which apiId to use.",
         inputSchema: {},
+        annotations: { readOnlyHint: true },
       },
       async () => {
         try {
@@ -111,6 +121,7 @@ export class ApiServer {
         } catch (error) {
           const msg = error instanceof Error ? error.message : String(error);
           return {
+            isError: true,
             content: [
               {
                 type: "text" as const,
@@ -134,6 +145,7 @@ export class ApiServer {
         inputSchema: {
           apiId: z.string().describe("API的唯一标识符"),
         },
+        annotations: { readOnlyHint: true },
       },
       async ({ apiId }) => {
         try {
@@ -145,6 +157,7 @@ export class ApiServer {
               .filter((id) => id.toLowerCase().includes(apiId.toLowerCase()))
               .slice(0, 5);
             return {
+              isError: true,
               content: [
                 {
                   type: "text" as const,
@@ -188,6 +201,7 @@ export class ApiServer {
         } catch (error: unknown) {
           const msg = error instanceof Error ? error.message : String(error);
           return {
+            isError: true,
             content: [
               {
                 type: "text" as const,
@@ -216,9 +230,8 @@ export class ApiServer {
             .describe("API的参数对象；缺省即空"),
         },
       },
-      // extra: RequestHandlerExtra — 含 _meta.progressToken（客户端支持时存在）与 sendNotification
+      // extra: RequestHandlerExtra — 含 _meta.progressToken（客户端约定：所有 executeApi 调用均携带）与 sendNotification
       async ({ apiId, params = {} }, extra: any) => {
-        // 从 MCP 请求元数据中提取 progressToken，构建进度回调
         const progressToken = extra?._meta?.progressToken as string | number | undefined;
         const onProgress: ProgressCallback | undefined = progressToken != null
           ? async (progress, total, message) => {
@@ -261,6 +274,7 @@ export class ApiServer {
               : `Re-check apiId via getApiDetails("${apiId}") and retry.`;
 
           return {
+            isError: true,
             content: [
               {
                 type: "text" as const,
@@ -276,104 +290,7 @@ export class ApiServer {
       }
     );
 
-    this.registerWorkflowPromptsOn(server);
-    this.logDebug("已注册API元工具与工作流 prompts");
-  }
-
-  /**
-   * 注册 MCP prompts：为非 Claude（如 Cursor / Cline / Continue）客户端
-   * 提供 `/` 菜单可见的工作流模板，等价于 Skills 的 L2 入口。
-   */
-  private registerWorkflowPromptsOn(server: McpServer): void {
-    server.registerPrompt(
-      "discover-and-call",
-      {
-        description:
-          "Guided three-step flow: listAllApis → getApiDetails → executeApi for a single user intent.",
-        argsSchema: {
-          intent: z.string().describe("用户目标，例如：查询某组织下的设备状态"),
-        },
-      },
-      ({ intent }) => ({
-        messages: [
-          {
-            role: "user",
-            content: {
-              type: "text",
-              text:
-                `Goal: ${intent}\n\n` +
-                `Steps:\n` +
-                `1. Call listAllApis to find candidate apiId by category/keyword.\n` +
-                `2. Call getApiDetails(apiId) to confirm required params and parameter sources.\n` +
-                `3. Call executeApi(apiId, params) and summarize the response for the user.\n` +
-                `If any step returns nextHint, follow it before asking the user.`,
-            },
-          },
-        ],
-      })
-    );
-
-    server.registerPrompt(
-      "cross-category-query",
-      {
-        description:
-          "Compose data from APIs in different categories (e.g. organization → users → devices) into a single answer.",
-        argsSchema: {
-          intent: z.string().describe("跨域查询目标"),
-          categories: z
-            .string()
-            .optional()
-            .describe("可选：建议涉及的分类，逗号分隔，如 '组织,用户信息'"),
-        },
-      },
-      ({ intent, categories }) => ({
-        messages: [
-          {
-            role: "user",
-            content: {
-              type: "text",
-              text:
-                `Goal: ${intent}\n` +
-                (categories ? `Suggested categories: ${categories}\n\n` : "\n") +
-                `Steps:\n` +
-                `1. listAllApis → identify one apiId per relevant category.\n` +
-                `2. For each, getApiDetails to confirm params and how IDs flow between calls.\n` +
-                `3. Execute in dependency order; reuse output fields as input keys when names match.\n` +
-                `4. Merge results into a single structured answer; cite which apiId produced each section.`,
-            },
-          },
-        ],
-      })
-    );
-
-    server.registerPrompt(
-      "batch-execute",
-      {
-        description:
-          "Execute a single apiId multiple times over a list of inputs and aggregate results.",
-        argsSchema: {
-          apiId: z.string().describe("要批量调用的 apiId"),
-          inputs: z.string().describe("批量输入项，按行或逗号分隔"),
-        },
-      },
-      ({ apiId, inputs }) => ({
-        messages: [
-          {
-            role: "user",
-            content: {
-              type: "text",
-              text:
-                `Batch call apiId="${apiId}" with the following inputs:\n${inputs}\n\n` +
-                `Steps:\n` +
-                `1. getApiDetails("${apiId}") to learn the required param shape.\n` +
-                `2. For each input, executeApi sequentially (do NOT parallelize unless the user asked).\n` +
-                `3. Collect successes and failures separately; show counts and a sample of each.\n` +
-                `4. If any call returns nextHint about missing params, stop and ask the user.`,
-            },
-          },
-        ],
-      })
-    );
+    this.logDebug("已注册 API 元工具");
   }
 
   /**
